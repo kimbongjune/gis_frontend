@@ -15,6 +15,7 @@ import ComplaintForm from './pages/Complaints/ComplaintForm';
 import SystemManagement from './pages/Admin/SystemManagement';
 import MobileMonitoring from './pages/Mobile/MobileMonitoring';
 import LoginPage from './pages/Auth/LoginPage';
+import TestMap from './pages/TestMap'; // NEW
 
 const NotFound = () => (
     <div className="flex flex-col items-center justify-center h-full p-8 text-center text-gray-500">
@@ -38,6 +39,7 @@ const App: React.FC = () => {
                             <Route path="/pipe-info" element={<PipeInformation />} />
                             <Route path="/monitoring" element={<RealtimeMonitoring />} />
                             <Route path="/monitoring/mobile" element={<MobileMonitoring />} />
+                            <Route path="/test/map" element={<TestMap />} /> {/* NEW */}
 
                             <Route path="/facilities/measurement" element={<MeasurementFacility />} />
                             <Route path="/facilities/list" element={<ReductionFacilityList />} />

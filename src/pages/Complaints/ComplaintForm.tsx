@@ -1,322 +1,606 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ComplaintData } from '../../types';
+import {
+    Search, MapPin, Save, User, Phone, FileText,
+    CheckCircle, Clock, AlertCircle, BarChart2, List, Paperclip
+} from 'lucide-react';
+import LocationPickerModal from '../../components/Common/LocationPickerModal';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+    Legend
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
 import 'ol/ol.css';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
+import { fromLonLat } from 'ol/proj';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
-import { Style, Icon } from 'ol/style';
-import { fromLonLat, toLonLat } from 'ol/proj';
+import { Style, Circle as CircleStyle, Fill, Stroke } from 'ol/style';
+import HeatmapLayer from 'ol/layer/Heatmap';
 
-// Type for Window to support Daum Postcode
-declare global {
-    interface Window {
-        daum: any;
-    }
+// Register ChartJS
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+    Legend
+);
+
+// --- TS Interfaces ---
+interface Complaint {
+    id: string;
+    date: string; // YYYY-MM-DD
+    time: string; // HH:mm
+    type: 'ODOR' | 'NOISE' | 'LEAK' | 'ETC';
+    location: string;
+    content: string;
+    status: 'RECEIVED' | 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED';
+    reporter: string;
+    contact: string;
+    manager: string;
+    lat?: number;
+    lon?: number;
 }
 
-const STEPS = ['접수', '배정', '처리중', '완료'];
+// --- Mock Data ---
+const MOCK_COMPLAINTS: Complaint[] = [
+    { id: 'C20231025-001', date: '2023-10-25', time: '09:30', type: 'ODOR', location: '백운동 123-4', content: '하수구에서 심한 악취가 납니다.', status: 'RECEIVED', reporter: '김철수', contact: '010-1234-5678', manager: '박새로이', lat: 35.132, lon: 126.902 },
+    { id: 'C20231024-005', date: '2023-10-24', time: '14:20', type: 'NOISE', location: '봉선동 45-1', content: '맨홀 뚜껑이 덜컹거려 소음이 심해요.', status: 'IN_PROGRESS', reporter: '이영희', contact: '010-9876-5432', manager: '조이서', lat: 35.130, lon: 126.905 },
+    { id: 'C20231024-002', date: '2023-10-24', time: '10:15', type: 'LEAK', location: '주월동 88-9', content: '비가 오면 하수구가 역류합니다.', status: 'COMPLETED', reporter: '박민준', contact: '010-1111-2222', manager: '장근원', lat: 35.135, lon: 126.900 },
+    { id: 'C20231023-011', date: '2023-10-23', time: '18:00', type: 'ODOR', location: '백운동 22-1', content: '저녁마다 냄새가 심해집니다.', status: 'COMPLETED', reporter: '최수진', contact: '010-3333-4444', manager: '박새로이', lat: 35.133, lon: 126.908 },
+    { id: 'C20231023-008', date: '2023-10-23', time: '16:45', type: 'ETC', location: '진월동 56-7', content: '공사 잔해물이 남아있습니다.', status: 'REJECTED', reporter: '정우성', contact: '010-5555-6666', manager: '오수아', lat: 35.128, lon: 126.910 },
+];
 
 const ComplaintForm: React.FC = () => {
-    const [formData, setFormData] = useState<Partial<ComplaintData>>({
-        reporterName: '',
+    // --- State ---
+    const [activeTab, setActiveTab] = useState<'LIST' | 'STATS'>('LIST');
+    const [mapMode, setMapMode] = useState<'MARKER' | 'HEATMAP'>('MARKER');
+    const [complaints, setComplaints] = useState<Complaint[]>(MOCK_COMPLAINTS);
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
+    const mapElement = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<Map | null>(null);
+
+    // Form State
+    const [formData, setFormData] = useState({
+        id: null as string | null,
+        reporter: '',
         contact: '',
-        title: '',
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().substring(0, 5),
+        type: 'ODOR',
+        location: '',
+        lat: 35.1272,
+        lon: 126.9113,
         content: '',
-        address: '',
-        status: 'RECEIVED'
+        files: null as FileList | null
     });
 
-    const [errors, setErrors] = useState<Record<string, string>>({});
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [currentStep, setCurrentStep] = useState(0); // 0: 접수
+    // Filter State
+    const [filters, setFilters] = useState({
+        dateStart: '',
+        dateEnd: '',
+        status: 'ALL',
+        region: '',
+        manager: '',
+        search: ''
+    });
 
-    // Map Refs
-    const mapRef = useRef<HTMLDivElement>(null);
-    const mapInstance = useRef<Map | null>(null);
-    const vectorSource = useRef<VectorSource | null>(null);
+    // --- Handlers ---
+    const handleLocationSelect = (lat: number, lon: number, addr: string) => {
+        setFormData(prev => ({ ...prev, location: addr, lat, lon }));
+        setIsPickerOpen(false);
+    };
 
-    // Load Daum Postcode Script
-    useEffect(() => {
-        const script = document.createElement('script');
-        script.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
-        script.async = true;
-        document.body.appendChild(script);
+    const handleRegister = (e: React.FormEvent) => {
+        e.preventDefault();
+        // Validation logic here
+        const newComplaint: Complaint = {
+            id: `C${new Date().getFullYear()}${new Date().getMonth() + 1}${new Date().getDate()}-${Math.floor(Math.random() * 100)}`,
+            date: formData.date,
+            time: formData.time,
+            type: formData.type as any,
+            location: formData.location,
+            content: formData.content,
+            status: 'RECEIVED',
+            reporter: formData.reporter,
+            contact: formData.contact,
+            manager: '박새로이 (자동배정)', // Mock
+            lat: formData.lat,
+            lon: formData.lon
+        };
 
-        return () => {
-            document.body.removeChild(script);
-        }
-    }, []);
-
-    // Initialize Map
-    useEffect(() => {
-        if (!mapRef.current) return;
-
-        vectorSource.current = new VectorSource();
-        const vectorLayer = new VectorLayer({
-            source: vectorSource.current,
+        setComplaints([newComplaint, ...complaints]);
+        alert('민원이 등록되었습니다.');
+        setFormData({
+            id: null,
+            reporter: '', contact: '',
+            date: new Date().toISOString().split('T')[0],
+            time: new Date().toTimeString().substring(0, 5),
+            type: 'ODOR',
+            location: '', lat: 35.1272, lon: 126.9113,
+            content: '', files: null
         });
+    };
 
-        const map = new Map({
-            target: mapRef.current,
-            layers: [
-                new TileLayer({
-                    source: new OSM(),
-                }),
-                vectorLayer
-            ],
-            view: new View({
-                center: fromLonLat([126.9113, 35.1272]),
-                zoom: 13,
-            }),
+    const handleManageClick = (complaint: Complaint) => {
+        setFormData({
+            id: complaint.id,
+            reporter: complaint.reporter,
+            contact: complaint.contact,
+            date: complaint.date,
+            time: complaint.time,
+            type: complaint.type,
+            location: complaint.location,
+            lat: complaint.lat || 35.1272,
+            lon: complaint.lon || 126.9113,
+            content: complaint.content,
+            files: null
         });
+    };
 
-        mapInstance.current = map;
-
-        return () => map.setTarget(undefined);
-    }, []);
-
-    // Update Map Pin
+    // Map Initialization
     useEffect(() => {
-        if (!mapInstance.current || !vectorSource.current) return;
+        if (activeTab === 'STATS' && mapElement.current) {
 
-        vectorSource.current.clear();
+            // 1. Create Source from Data
+            const vectorSource = new VectorSource();
+            complaints.forEach(c => {
+                if (c.lat && c.lon) {
+                    const feature = new Feature({
+                        geometry: new Point(fromLonLat([c.lon, c.lat])),
+                        weight: 0.8 // For heatmap
+                    });
 
-        if (formData.latitude && formData.longitude) {
-            const coords = fromLonLat([formData.longitude, formData.latitude]);
+                    // Style for Marker Mode
+                    feature.setStyle(new Style({
+                        image: new CircleStyle({
+                            radius: 8,
+                            fill: new Fill({ color: 'rgba(255, 0, 0, 0.6)' }),
+                            stroke: new Stroke({ color: 'white', width: 2 })
+                        })
+                    }));
 
-            const feature = new Feature({
-                geometry: new Point(coords),
+                    vectorSource.addFeature(feature);
+                }
             });
 
-            feature.setStyle(new Style({
-                image: new Icon({
-                    src: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // Fallback or use standard marker
-                    scale: 0.05,
-                    anchor: [0.5, 1],
-                    color: '#ef4444' // Tint red
-                })
-            }));
+            // 2. Create Layers
+            const markerLayer = new VectorLayer({
+                source: vectorSource,
+                visible: mapMode === 'MARKER'
+            });
 
-            vectorSource.current.addFeature(feature);
-            mapInstance.current.getView().animate({ center: coords, zoom: 16 });
+            const heatmapLayer = new HeatmapLayer({
+                source: vectorSource,
+                blur: 15,
+                radius: 10,
+                weight: 'weight',
+                visible: mapMode === 'HEATMAP'
+            });
+
+            // 3. Create Map
+            const map = new Map({
+                target: mapElement.current,
+                layers: [
+                    new TileLayer({
+                        source: new OSM(),
+                    }),
+                    markerLayer,
+                    heatmapLayer
+                ],
+                view: new View({
+                    center: fromLonLat([126.905, 35.132]), // Center of mock data
+                    zoom: 14,
+                }),
+            });
+
+            mapRef.current = map;
+
+            return () => {
+                map.setTarget(undefined);
+            };
         }
-    }, [formData.latitude, formData.longitude]);
+    }, [activeTab, complaints, mapMode]); // Re-init when mode changes (Simpler than managing layer update separately)
 
-    const handleAddressSearch = () => {
-        if (!window.daum || !window.daum.Postcode) {
-            alert('주소 검색 서비스를 로딩 중입니다.');
-            return;
-        }
+    // --- Derived Data ---
+    // --- Derived Data ---
+    const filteredComplaints = complaints.filter(c => {
+        const matchStatus = filters.status === 'ALL' || c.status === filters.status;
+        const matchRegion = filters.region === '' || c.location.includes(filters.region);
+        const matchManager = filters.manager === '' || c.manager.includes(filters.manager);
+        const matchDateStart = filters.dateStart === '' || c.date >= filters.dateStart;
+        const matchDateEnd = filters.dateEnd === '' || c.date <= filters.dateEnd;
+        const matchSearch = filters.search === '' ||
+            c.content.includes(filters.search) ||
+            c.reporter.includes(filters.search) ||
+            c.id.includes(filters.search);
 
-        new window.daum.Postcode({
-            oncomplete: function (data: any) {
-                // In real app, we need to geocode this address to get lat/lon
-                // Mocking Geocoding for now based on address length hash or random nearby
-                // Using Kakao Geocoder is required strictly but we don't have key here.
-                // We will simulate lat/lon update.
+        return matchStatus && matchRegion && matchManager && matchDateStart && matchDateEnd && matchSearch;
+    });
 
-                const addr = data.address;
-                setFormData(prev => ({ ...prev, address: addr }));
-
-                // Mock Coords (Gwangju Nam-gu center)
-                // Ideally we fetch coordinates using `data.address`
-                setFormData(prev => ({ ...prev, latitude: 35.1272 + (Math.random() * 0.001), longitude: 126.9113 + (Math.random() * 0.001) }));
-            }
-        }).open();
-    };
-
-    const validate = () => {
-        const newErrors: Record<string, string> = {};
-
-        if (!formData.reporterName) newErrors.reporterName = '신고자명은 필수 입력입니다.';
-
-        if (!formData.contact) {
-            newErrors.contact = '연락처는 필수 입력입니다.';
-        } else if (!/^01(?:0|1|[6-9])-(?:\d{3}|\d{4})-\d{4}$/.test(formData.contact)) {
-            newErrors.contact = '올바른 전화번호 형식이 아닙니다 (예: 010-1234-5678).';
-        }
-
-        if (!formData.title) newErrors.title = '민원 제목은 필수 입력입니다.';
-        if (!formData.content) newErrors.content = '민원 내용은 필수 입력입니다.';
-        if (!formData.address) newErrors.address = '민원 발생 위치를 선택해주세요.';
-
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!validate()) return;
-
-        setIsSubmitting(true);
-
-        try {
-            // Simulate API
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            alert('민원이 성공적으로 접수되었습니다.');
-            // Reset or redirect
-            setFormData({ reporterName: '', contact: '', title: '', content: '', address: '', status: 'RECEIVED' });
-            setCurrentStep(0);
-        } catch (e) {
-            alert('서버 연결에 실패했습니다.'); // Defined Error Message
-        } finally {
-            setIsSubmitting(false);
-        }
+    // Stats Data for Chart
+    const statsData = {
+        labels: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+        datasets: [
+            {
+                label: '월별 민원 접수',
+                data: [12, 19, 3, 5, 2, 3, 15, 20, 10, 25, 10, 8],
+                backgroundColor: 'rgba(59, 130, 246, 0.5)',
+            },
+        ],
     };
 
     return (
-        <div className="w-full max-w-5xl mx-auto p-6 bg-white min-h-screen">
-            <div className="mb-8 pb-4 border-b border-gray-200">
-                <h1 className="text-2xl font-bold text-gray-900">악취 민원 접수</h1>
-                <p className="text-gray-500 text-sm mt-1">악취 발생 지역과 상세 내용을 입력해주시면 신속히 처리하겠습니다.</p>
-            </div>
+        <div className="flex h-[calc(100vh-64px)] bg-gray-100 p-4 gap-4 overflow-hidden">
 
-            {/* Step Indicator */}
-            <div className="flex justify-center mb-10 w-full">
-                <div className="flex items-center w-full max-w-2xl">
-                    {STEPS.map((step, index) => (
-                        <React.Fragment key={step}>
-                            <div className="relative flex flex-col items-center">
-                                <div
-                                    aria-current={index === currentStep ? 'step' : undefined}
-                                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors z-10 ${index <= currentStep ? 'bg-blue-600 text-white shadow-lg ring-4 ring-blue-100' : 'bg-gray-200 text-gray-500'}`}
-                                >
-                                    {index + 1}
-                                </div>
-                                <span className={`absolute top-12 text-xs font-semibold whitespace-nowrap ${index <= currentStep ? 'text-blue-600' : 'text-gray-400'}`}>
-                                    {step}
-                                </span>
-                            </div>
-                            {index < STEPS.length - 1 && (
-                                <div className={`flex-1 h-1 mx-2 rounded ${index < currentStep ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
-                            )}
-                        </React.Fragment>
-                    ))}
+            {/* Left Column: Complaint Registration Form (Operator) */}
+            <div className="w-[400px] flex-shrink-0 bg-white rounded-lg shadow-md border border-gray-200 flex flex-col">
+                <div className="p-4 border-b border-gray-100 bg-blue-50 rounded-t-lg">
+                    <h2 className="text-lg font-bold text-blue-900 flex items-center gap-2">
+                        <Phone size={20} /> 민원 접수
+                    </h2>
+                    <p className="text-xs text-blue-600 mt-1">전화 민원 수신 시 실시간 입력 폼</p>
                 </div>
-            </div>
 
-            <div className="flex gap-8">
-                {/* Form Section */}
-                <div className="flex-1">
-                    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-
-                        {/* Reporter Info */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="reporterName" className="block text-sm font-semibold text-gray-700 mb-1">신고자명 <span className="text-red-500">*</span></label>
+                <div className="flex-1 overflow-y-auto p-5">
+                    <form onSubmit={handleRegister} className="flex flex-col gap-4">
+                        {/* Reporter Section */}
+                        <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                            <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1"><User size={12} /> 신고자 정보</h3>
+                            <div className="grid grid-cols-1 gap-2">
                                 <input
-                                    id="reporterName"
                                     type="text"
-                                    className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.reporterName ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                                    value={formData.reporterName}
-                                    onChange={e => setFormData({ ...formData, reporterName: e.target.value })}
+                                    placeholder="신고자 성명"
+                                    className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500"
+                                    value={formData.reporter}
+                                    onChange={e => setFormData({ ...formData, reporter: e.target.value })}
                                 />
-                                {errors.reporterName && <span className="text-xs text-red-500 mt-1 block">{errors.reporterName}</span>}
-                            </div>
-
-                            <div>
-                                <label htmlFor="contact" className="block text-sm font-semibold text-gray-700 mb-1">연락처 <span className="text-red-500">*</span></label>
                                 <input
-                                    id="contact"
                                     type="text"
-                                    placeholder="010-0000-0000"
-                                    className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.contact ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                                    placeholder="연락처 (010-0000-0000)"
+                                    className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500"
                                     value={formData.contact}
-                                    onChange={e => {
-                                        // Auto-format phone number
-                                        const val = e.target.value.replace(/[^0-9]/g, '').replace(/^(\d{2,3})(\d{3,4})(\d{4})$/, `$1-$2-$3`);
-                                        setFormData({ ...formData, contact: val.slice(0, 13) });
-                                    }}
+                                    onChange={e => setFormData({ ...formData, contact: e.target.value })}
                                 />
-                                {errors.contact && <span className="text-xs text-red-500 mt-1 block">{errors.contact}</span>}
                             </div>
                         </div>
 
-                        {/* Location */}
+                        {/* Complaint Details */}
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">발생 위치 <span className="text-red-500">*</span></label>
-                            <div className="flex gap-2 mb-2">
+                            <label className="text-sm font-bold text-gray-700 mb-1 block">민원 유형</label>
+                            <select
+                                className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500"
+                                value={formData.type}
+                                onChange={e => setFormData({ ...formData, type: e.target.value })}
+                            >
+                                <option value="ODOR">악취 발생</option>
+                                <option value="NOISE">소음 피해</option>
+                                <option value="LEAK">역류/누수</option>
+                                <option value="ETC">기타 문의</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-bold text-gray-700 mb-1 block">접수 일시</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="date"
+                                    className="flex-1 w-full min-w-0 border p-2 rounded text-sm outline-none"
+                                    value={formData.date}
+                                    onChange={e => setFormData({ ...formData, date: e.target.value })}
+                                />
+                                <input
+                                    type="time"
+                                    className="flex-shrink-0 w-28 border p-2 rounded text-sm outline-none"
+                                    value={formData.time}
+                                    onChange={e => setFormData({ ...formData, time: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-bold text-gray-700 mb-1 block">발생 위치</label>
+                            <div className="flex gap-2">
                                 <input
                                     type="text"
+                                    placeholder="주소 검색 또는 지도 선택"
                                     readOnly
-                                    placeholder="주소 검색 버튼을 눌러주세요"
-                                    className={`flex-1 border rounded px-3 py-2 text-sm bg-gray-50 text-gray-600 ${errors.address ? 'border-red-500' : 'border-gray-300'}`}
-                                    value={formData.address}
+                                    className="flex-1 border p-2 rounded text-sm bg-gray-50 cursor-pointer"
+                                    value={formData.location}
+                                    onClick={() => setIsPickerOpen(true)}
                                 />
                                 <button
                                     type="button"
-                                    onClick={handleAddressSearch}
-                                    className="bg-gray-800 hover:bg-gray-900 text-white text-sm px-4 py-2 rounded shrink-0 transition-colors"
+                                    onClick={() => setIsPickerOpen(true)}
+                                    className="bg-gray-200 p-2 rounded hover:bg-gray-300 text-gray-600"
                                 >
-                                    주소 검색
+                                    <MapPin size={20} />
                                 </button>
                             </div>
-                            {errors.address && <span className="text-xs text-red-500 block">{errors.address}</span>}
-                        </div>
-
-                        {/* Complaint Detail */}
-                        <div>
-                            <label htmlFor="title" className="block text-sm font-semibold text-gray-700 mb-1">민원 제목 <span className="text-red-500">*</span></label>
-                            <input
-                                id="title"
-                                type="text"
-                                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.title ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                                value={formData.title}
-                                onChange={e => setFormData({ ...formData, title: e.target.value })}
-                            />
-                            {errors.title && <span className="text-xs text-red-500 mt-1 block">{errors.title}</span>}
                         </div>
 
                         <div>
-                            <label htmlFor="content" className="block text-sm font-semibold text-gray-700 mb-1">민원 내용 <span className="text-red-500">*</span></label>
+                            <label className="text-sm font-bold text-gray-700 mb-1 block">민원 내용</label>
                             <textarea
-                                id="content"
-                                rows={6}
-                                className={`w-full border rounded px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.content ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                                rows={5}
+                                className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500 resize-none"
+                                placeholder="민원 상세 내용을 입력하세요."
                                 value={formData.content}
                                 onChange={e => setFormData({ ...formData, content: e.target.value })}
                             ></textarea>
-                            {errors.content && <span className="text-xs text-red-500 mt-1 block">{errors.content}</span>}
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
-                            <button type="button" className="px-5 py-2.5 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors font-medium">취소</button>
+                        <div>
+                            <label className="text-sm font-bold text-gray-700 mb-1 block">첨부 파일 (현장 사진 등)</label>
+                            {formData.id ? (
+                                <div className="bg-gray-50 border rounded p-3 text-sm">
+                                    <div className="flex items-center gap-2 text-gray-700 font-bold mb-2">
+                                        <Paperclip size={16} />
+                                        <span>첨부된 파일 목록 ({Math.floor(Math.random() * 3) + 1}개)</span>
+                                    </div>
+                                    <ul className="space-y-1">
+                                        <li className="flex items-center gap-2 text-blue-600 hover:underline cursor-pointer">
+                                            - 현장_사진_01.jpg (2.4MB)
+                                        </li>
+                                        <li className="flex items-center gap-2 text-blue-600 hover:underline cursor-pointer">
+                                            - 민원_상세_내용.pdf (1.1MB)
+                                        </li>
+                                    </ul>
+                                </div>
+                            ) : (
+                                <input
+                                    type="file"
+                                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                />
+                            )}
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
                             <button
                                 type="submit"
-                                disabled={isSubmitting}
-                                className="px-5 py-2.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors shadow-sm font-bold flex items-center gap-2"
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow flex items-center gap-2 w-full justify-center transition-colors"
                             >
-                                {isSubmitting && <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
-                                민원 등록
+                                <Save size={18} /> 민원 등록 (저장)
                             </button>
                         </div>
                     </form>
                 </div>
+            </div>
 
-                {/* Map Section */}
-                <div className="w-[350px] bg-gray-50 border border-gray-200 rounded-lg overflow-hidden flex flex-col h-[500px] sticky top-6 shadow-sm">
-                    <div className="p-3 bg-white border-b border-gray-100 font-bold text-gray-800 text-sm">
-                        위치 확인
-                    </div>
-                    <div className="flex-1 relative">
-                        <div ref={mapRef} className="absolute inset-0 w-full h-full bg-gray-100" />
-                        {!formData.address && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/5 text-gray-500 text-sm pointer-events-none">
-                                주소를 선택하면 지도에 표시됩니다.
+            {/* Right Column: Dashboard (Tabs) */}
+            <div className="flex-1 bg-white rounded-lg shadow-md border border-gray-200 flex flex-col overflow-hidden">
+                {/* Tabs Header */}
+                <div className="flex border-b border-gray-200">
+                    <button
+                        onClick={() => setActiveTab('LIST')}
+                        className={`flex-1 py-4 text-center font-bold text-sm flex items-center justify-center gap-2 ${activeTab === 'LIST' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50' : 'text-gray-500 hover:bg-gray-50'}`}
+                    >
+                        <List size={18} /> 민원 처리 현황 목록
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('STATS')}
+                        className={`flex-1 py-4 text-center font-bold text-sm flex items-center justify-center gap-2 ${activeTab === 'STATS' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50' : 'text-gray-500 hover:bg-gray-50'}`}
+                    >
+                        <BarChart2 size={18} /> 통계 및 시각화
+                    </button>
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 bg-gray-50 p-6 overflow-hidden">
+                    {activeTab === 'LIST' ? (
+                        <div className="flex flex-col h-full gap-4">
+                            {/* Filter Bar */}
+                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col gap-3">
+                                <div className="flex flex-wrap gap-2 items-center justify-between">
+                                    <h4 className="font-bold text-gray-700 flex items-center gap-2">
+                                        <Search size={16} /> 민원 검색 필터
+                                    </h4>
+                                    <div className="text-sm text-gray-500">
+                                        총 <span className="font-bold text-blue-600">{filteredComplaints.length}</span> 건
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-6 gap-2">
+                                    {/* Date Range */}
+                                    <div className="col-span-2 flex gap-1 items-center bg-gray-50 p-1 rounded border">
+                                        <span className="text-xs text-gray-500 px-1">기간</span>
+                                        <input
+                                            type="date"
+                                            className="w-full bg-transparent text-xs outline-none"
+                                            value={filters.dateStart}
+                                            onChange={e => setFilters({ ...filters, dateStart: e.target.value })}
+                                        />
+                                        <span className="text-gray-400">~</span>
+                                        <input
+                                            type="date"
+                                            className="w-full bg-transparent text-xs outline-none"
+                                            value={filters.dateEnd}
+                                            onChange={e => setFilters({ ...filters, dateEnd: e.target.value })}
+                                        />
+                                    </div>
+
+                                    {/* Status */}
+                                    <select
+                                        className="col-span-1 border rounded px-2 py-1.5 text-sm bg-gray-50 outline-none focus:border-blue-500"
+                                        value={filters.status}
+                                        onChange={e => setFilters({ ...filters, status: e.target.value })}
+                                    >
+                                        <option value="ALL">전체 상태</option>
+                                        <option value="RECEIVED">접수</option>
+                                        <option value="IN_PROGRESS">처리중</option>
+                                        <option value="COMPLETED">완료</option>
+                                    </select>
+
+                                    {/* Region */}
+                                    <input
+                                        type="text"
+                                        placeholder="지역 (동)"
+                                        className="col-span-1 border rounded px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                        value={filters.region}
+                                        onChange={e => setFilters({ ...filters, region: e.target.value })}
+                                    />
+
+                                    {/* Manager */}
+                                    <input
+                                        type="text"
+                                        placeholder="담당자"
+                                        className="col-span-1 border rounded px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                        value={filters.manager}
+                                        onChange={e => setFilters({ ...filters, manager: e.target.value })}
+                                    />
+
+                                    {/* Search Content */}
+                                    <input
+                                        type="text"
+                                        placeholder="내용/신고자 검색"
+                                        className="col-span-1 border rounded px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                        value={filters.search}
+                                        onChange={e => setFilters({ ...filters, search: e.target.value })}
+                                    />
+                                </div>
                             </div>
-                        )}
-                    </div>
-                    <div className="p-3 bg-white border-t border-gray-100 text-xs text-gray-500">
-                        위도: {formData.latitude ? formData.latitude.toFixed(6) : '-'}, 경도: {formData.longitude ? formData.longitude.toFixed(6) : '-'}
-                    </div>
+
+                            {/* Table */}
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 overflow-hidden flex flex-col">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-gray-50 text-gray-700 font-bold border-b border-gray-200">
+                                            <tr>
+                                                <th className="px-4 py-3 whitespace-nowrap">접수번호</th>
+                                                <th className="px-4 py-3 whitespace-nowrap">접수일시</th>
+                                                <th className="px-4 py-3 whitespace-nowrap">유형</th>
+                                                <th className="px-4 py-3">위치</th>
+                                                <th className="px-4 py-3">민원내용</th>
+                                                <th className="px-4 py-3 whitespace-nowrap">접수자</th>
+                                                <th className="px-4 py-3 whitespace-nowrap">담당자</th>
+                                                <th className="px-4 py-3 whitespace-nowrap">상태</th>
+                                                <th className="px-4 py-3 whitespace-nowrap">관리</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {filteredComplaints.map(complaint => (
+                                                <tr key={complaint.id} className="hover:bg-blue-50 transition-colors">
+                                                    <td className="px-4 py-3 font-mono text-gray-500">{complaint.id}</td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="text-gray-900">{complaint.date}</div>
+                                                        <div className="text-xs text-gray-500">{complaint.time}</div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${complaint.type === 'ODOR' ? 'bg-purple-100 text-purple-700' :
+                                                            complaint.type === 'NOISE' ? 'bg-orange-100 text-orange-700' :
+                                                                complaint.type === 'LEAK' ? 'bg-blue-100 text-blue-700' :
+                                                                    'bg-gray-100 text-gray-700'
+                                                            }`}>
+                                                            {complaint.type === 'ODOR' ? '악취' :
+                                                                complaint.type === 'NOISE' ? '소음' :
+                                                                    complaint.type === 'LEAK' ? '역류' : '기타'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-800">{complaint.location}</td>
+                                                    <td className="px-4 py-3 text-gray-600 truncate max-w-xs" title={complaint.content}>
+                                                        {complaint.content}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-800">{complaint.reporter}</td>
+                                                    <td className="px-4 py-3 text-gray-800">{complaint.manager}</td>
+                                                    <td className="px-4 py-3">
+                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${complaint.status === 'RECEIVED' ? 'bg-yellow-100 text-yellow-800' :
+                                                            complaint.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                                                                complaint.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                                                                    'bg-red-100 text-red-800'
+                                                            }`}>
+                                                            {complaint.status === 'RECEIVED' && <AlertCircle size={10} />}
+                                                            {complaint.status === 'IN_PROGRESS' && <Clock size={10} />}
+                                                            {complaint.status === 'COMPLETED' && <CheckCircle size={10} />}
+                                                            {complaint.status === 'RECEIVED' ? '접수' :
+                                                                complaint.status === 'IN_PROGRESS' ? '처리중' :
+                                                                    complaint.status === 'COMPLETED' ? '완료' : '반려'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <button
+                                                            onClick={() => handleManageClick(complaint)}
+                                                            className="text-gray-400 hover:text-blue-600 transition-colors"
+                                                            title="관리 (정보 로드)"
+                                                        >
+                                                            <FileText size={18} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col h-full gap-6 overflow-y-auto">
+                            {/* Monthly Graph */}
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                    <BarChart2 size={20} className="text-blue-600" /> 월별 민원 발생 추이
+                                </h3>
+                                <div className="h-64">
+                                    <Bar options={{
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        plugins: {
+                                            legend: { position: 'top' as const },
+                                        },
+                                    }} data={statsData} />
+                                </div>
+                            </div>
+
+                            {/* Map Visualization */}
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex-1 min-h-[400px] flex flex-col">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                        <MapPin size={20} className="text-red-500" /> 민원 발생 지역 분포
+                                    </h3>
+                                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                                        <button
+                                            onClick={() => setMapMode('MARKER')}
+                                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${mapMode === 'MARKER'
+                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-700'
+                                                }`}
+                                        >
+                                            일반 지도
+                                        </button>
+                                        <button
+                                            onClick={() => setMapMode('HEATMAP')}
+                                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${mapMode === 'HEATMAP'
+                                                ? 'bg-white text-red-600 shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-700'
+                                                }`}
+                                        >
+                                            히트맵
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex-1 bg-gray-100 rounded-lg relative overflow-hidden border border-gray-200">
+                                    <div ref={mapElement} className="absolute inset-0 w-full h-full" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            <LocationPickerModal
+                isOpen={isPickerOpen}
+                onClose={() => setIsPickerOpen(false)}
+                onSelect={handleLocationSelect}
+            />
         </div>
     );
 };

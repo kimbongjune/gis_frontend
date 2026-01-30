@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -10,9 +11,13 @@ import {
     Legend
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { ArrowUp, ArrowDown, AlertCircle, CheckCircle, WifiOff } from 'lucide-react';
+import { ArrowUp, ArrowDown, AlertCircle, CheckCircle } from 'lucide-react';
+import { GiCaveman } from "react-icons/gi";
+import { MdOutlineSensors } from "react-icons/md";
 import DashboardMap from '../components/Dashboard/DashboardMap';
-import { SensorData, ODOR_GRADES } from '../types';
+import SensorTable from '../components/Dashboard/SensorTable';
+import AlarmPopup from '../components/Common/AlarmPopup';
+import { SensorData } from '../types';
 
 // Register ChartJS
 ChartJS.register(
@@ -37,12 +42,14 @@ const generateMockSensors = (): SensorData[] => {
 };
 
 const Dashboard: React.FC = () => {
+    const navigate = useNavigate();
     const [sensors, setSensors] = useState<SensorData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [alarmPopupData, setAlarmPopupData] = useState<{ location: string; type: string; value: string; time: string; level: 'WARNING' | 'CRITICAL' | 'DISCONNECT' } | null>(null);
 
     // Stats
     const stats = {
-        totalSensors: 25,
+        totalSensors: 5,
         todayAlarms: 3,
         todayComplaints: 5,
         alarmTrend: 'up', // 'up' | 'down'
@@ -55,6 +62,17 @@ const Dashboard: React.FC = () => {
             setSensors(generateMockSensors());
             setLoading(false);
         }, 500);
+
+        // Simulate Alarm Popup Trigger (Test)
+        setTimeout(() => {
+            setAlarmPopupData({
+                location: '봉선시장 입구',
+                type: '복합악취 임계치 초과',
+                value: '15.2 OU',
+                time: new Date().toLocaleTimeString(),
+                level: 'CRITICAL'
+            });
+        }, 3000); // Trigger after 3 seconds
 
         // Real-time update simulation
         const interval = setInterval(() => {
@@ -111,8 +129,20 @@ const Dashboard: React.FC = () => {
         { id: 3, time: '08:30:00', location: '진월동 주민센터', type: '통신 미수신 (30분)', level: '장애' },
     ];
 
+    const handleSensorClick = (sensor: SensorData) => {
+        // Navigate to monitoring page, potentially with filtering if implemented later
+        // For now, just go to the monitoring page as requested for "detailed view" context
+        navigate('/monitoring');
+    };
+
     return (
         <div className="flex flex-col h-full gap-6 p-2">
+            <AlarmPopup
+                isOpen={!!alarmPopupData}
+                onClose={() => setAlarmPopupData(null)}
+                onDetail={() => navigate('/monitoring')}
+                data={alarmPopupData}
+            />
             {/* 1. Top Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-100 flex items-center justify-between">
@@ -121,7 +151,7 @@ const Dashboard: React.FC = () => {
                         <h3 className="text-3xl font-bold text-gray-800">{stats.totalSensors} <span className="text-base font-normal text-gray-400">개소</span></h3>
                     </div>
                     <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                        <WifiOff size={24} className="transform rotate-180" /> {/* Just an icon */}
+                        <MdOutlineSensors size={24} className="transform rotate-180" /> {/* Just an icon */}
                     </div>
                 </div>
 
@@ -151,7 +181,8 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                     <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
-                        <CheckCircle size={24} />
+                        {/* <CheckCircle size={24} /> */}
+                        <GiCaveman size={24} />
                     </div>
                 </div>
             </div>
@@ -188,7 +219,7 @@ const Dashboard: React.FC = () => {
                             <h3 className="font-bold text-gray-800 text-sm">실시간 경보 이력</h3>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2">
-                            {alarms.map(alarm => (
+                            {alarms.map((alarm) => (
                                 <div key={alarm.id} className="flex items-start gap-3 p-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
                                     <div className={`mt-1 w-2 h-2 rounded-full ${alarm.level === '심각' ? 'bg-red-500' : alarm.level === '주의' ? 'bg-yellow-500' : 'bg-gray-400'}`}></div>
                                     <div className="flex-1">
@@ -200,12 +231,20 @@ const Dashboard: React.FC = () => {
                                     </div>
                                 </div>
                             ))}
-                            <div className="text-center py-2 text-xs text-gray-400 cursor-pointer hover:text-blue-500">
+                            <div
+                                className="text-center py-2 text-xs text-gray-400 cursor-pointer hover:text-blue-500"
+                                onClick={() => navigate('/history')}
+                            >
                                 더 보기
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* 3. Bottom: Sensor Table */}
+            <div className="h-[300px]">
+                <SensorTable sensors={sensors} onSensorClick={handleSensorClick} />
             </div>
         </div>
     );

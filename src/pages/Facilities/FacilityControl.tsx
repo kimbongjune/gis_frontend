@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Facility, ControlRequest } from '../../types';
+import { Facility } from '../../types';
 
 // Mock Data
 const MOCK_FACILITIES: Facility[] = [
@@ -211,7 +211,7 @@ const FacilityControl: React.FC = () => {
                                         onClick={() => handleControlCommand('RESET')}
                                         className="h-20 rounded-xl bg-white border-2 border-red-500 text-red-500 hover:bg-red-50 disabled:border-gray-200 disabled:text-gray-400 text-lg font-bold shadow-sm transition-all flex flex-col items-center justify-center gap-1 active:scale-95"
                                     >
-                                        <span>에러 초기화</span>
+                                        <span>초기화</span>
                                     </button>
                                 </div>
                             </div>

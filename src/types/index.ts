@@ -46,6 +46,17 @@ export interface ComplaintData {
     timestamp: string;
 }
 
+export interface PipeData {
+    id: string;
+    name: string;
+    type: 'SEWAGE' | 'RAIN' | 'COMBINED';
+    length: number; // meters
+    installYear: number;
+    status: 'NORMAL' | 'WARNING' | 'CRITICAL';
+    location: string;
+    coordinates: number[][]; // LineString coordinates
+}
+
 export type OdorGrade = 1 | 2 | 3 | 4;
 
 export const ODOR_GRADES: Record<OdorGrade, { label: string; color: string }> = {

@@ -20,18 +20,21 @@ import Point from 'ol/geom/Point';
 import { Style, Circle as CircleStyle, Fill, Stroke, Text } from 'ol/style';
 import Overlay from 'ol/Overlay';
 import { fromLonLat } from 'ol/proj';
-import { SensorData, ODOR_GRADES } from '../../types';
+import { SensorData, ODOR_GRADES, ComplaintData } from '../../types';
 
 interface DashboardMapProps {
     sensors: SensorData[];
+    complaints?: ComplaintData[];
+    mode?: 'desktop' | 'mobile';
 }
 
-const DashboardMap: React.FC<DashboardMapProps> = ({ sensors }) => {
+const DashboardMap: React.FC<DashboardMapProps> = ({ sensors, complaints = [], mode = 'desktop' }) => {
     const mapElement = useRef<HTMLDivElement>(null);
     const popupElement = useRef<HTMLDivElement>(null);
     const mapRef = useRef<Map | null>(null);
     const overlayRef = useRef<Overlay | null>(null);
     const [selectedSensor, setSelectedSensor] = useState<SensorData | null>(null);
+    const [selectedComplaint, setSelectedComplaint] = useState<ComplaintData | null>(null);
 
     useEffect(() => {
         if (!mapElement.current || !popupElement.current) return;
@@ -55,11 +58,11 @@ const DashboardMap: React.FC<DashboardMapProps> = ({ sensors }) => {
             target: mapElement.current,
             layers: [
                 new TileLayer({
-                    source: new OSM(), // Replace with VWorld XYZ source if needed
+                    source: new OSM(),
                 }),
             ],
             view: new View({
-                center: fromLonLat([126.9113, 35.1272]), // Gwangju Nam-gu approximate center
+                center: fromLonLat([126.9113, 35.1272]),
                 zoom: 13,
             }),
             overlays: [overlay],
@@ -71,13 +74,23 @@ const DashboardMap: React.FC<DashboardMapProps> = ({ sensors }) => {
         map.on('click', (event) => {
             const feature = map.forEachFeatureAtPixel(event.pixel, (feature) => feature);
             if (feature) {
-                const sensor = feature.get('sensorData') as SensorData;
-                setSelectedSensor(sensor);
+                const sensor = feature.get('sensorData') as SensorData | undefined;
+                const complaint = feature.get('complaintData') as ComplaintData | undefined;
+
+                if (sensor) {
+                    setSelectedSensor(sensor);
+                    setSelectedComplaint(null);
+                } else if (complaint) {
+                    setSelectedSensor(null);
+                    setSelectedComplaint(complaint);
+                }
+
                 const coordinates = (feature.getGeometry() as Point).getCoordinates();
                 overlay.setPosition(coordinates);
             } else {
                 overlay.setPosition(undefined);
                 setSelectedSensor(null);
+                setSelectedComplaint(null);
             }
         });
 
@@ -92,13 +105,13 @@ const DashboardMap: React.FC<DashboardMapProps> = ({ sensors }) => {
 
         const vectorSource = new VectorSource();
 
+        // Add Sensors
         sensors.forEach((sensor) => {
             const feature = new Feature({
                 geometry: new Point(fromLonLat([sensor.longitude, sensor.latitude])),
                 sensorData: sensor,
             });
 
-            // Style based on Grade
             const gradeInfo = ODOR_GRADES[sensor.grade] || { color: '#666', label: '미수신' };
             const color = sensor.status === 'DISCONNECT' ? '#000000' : gradeInfo.color;
 
@@ -121,7 +134,33 @@ const DashboardMap: React.FC<DashboardMapProps> = ({ sensors }) => {
             vectorSource.addFeature(feature);
         });
 
-        // Remove old vector layers if any to avoid stacking
+        // Add Complaints
+        complaints.forEach((complaint) => {
+            const feature = new Feature({
+                geometry: new Point(fromLonLat([complaint.longitude, complaint.latitude])),
+                complaintData: complaint,
+            });
+
+            const style = new Style({
+                image: new CircleStyle({
+                    radius: 8,
+                    fill: new Fill({ color: '#8B5CF6' }), // Purple for complaints
+                    stroke: new Stroke({ color: '#fff', width: 2 }),
+                }),
+                text: new Text({
+                    text: '민원',
+                    offsetY: 15,
+                    scale: 0.8,
+                    fill: new Fill({ color: '#8B5CF6' }),
+                    stroke: new Stroke({ color: '#fff', width: 2 }),
+                }),
+            });
+
+            feature.setStyle(style);
+            vectorSource.addFeature(feature);
+        });
+
+        // Remove old vector layers
         const map = mapRef.current;
         const layersToRemove = map.getLayers().getArray().filter(layer => layer instanceof VectorLayer);
         layersToRemove.forEach(layer => map.removeLayer(layer));
@@ -131,14 +170,14 @@ const DashboardMap: React.FC<DashboardMapProps> = ({ sensors }) => {
         });
         map.addLayer(vectorLayer);
 
-    }, [sensors]);
+    }, [sensors, complaints]);
 
     return (
         <div className="relative w-full h-full min-h-[500px] border border-gray-300 rounded-lg overflow-hidden shadow-sm">
             <div ref={mapElement} className="w-full h-full" />
 
             {/* Popup Overlay */}
-            <div ref={popupElement} className="absolute bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-[200px] text-sm hidden">
+            <div ref={popupElement} className="absolute bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-[200px] text-sm">
                 {selectedSensor && (
                     <div className="flex flex-col gap-2">
                         <h3 className="font-bold text-gray-800 border-b pb-1">{selectedSensor.name}</h3>
@@ -162,11 +201,26 @@ const DashboardMap: React.FC<DashboardMapProps> = ({ sensors }) => {
                         </div>
                     </div>
                 )}
+                {selectedComplaint && (
+                    <div className="flex flex-col gap-2">
+                        <h3 className="font-bold text-gray-800 border-b pb-1">민원 상세</h3>
+                        <div className="flex flex-col gap-1">
+                            <div className="text-xs font-semibold text-gray-700">{selectedComplaint.title}</div>
+                            <div className="text-xs text-gray-600 break-words max-w-[200px]">{selectedComplaint.content}</div>
+                            <div className="text-xs text-gray-400 mt-1">
+                                {selectedComplaint.reporterName} | {new Date(selectedComplaint.timestamp).toLocaleDateString()}
+                            </div>
+                            <div className="text-xs font-semibold text-purple-600 mt-1">
+                                {selectedComplaint.status}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Legend */}
             <div className="absolute top-4 right-4 bg-white/90 p-3 rounded-lg shadow border border-gray-200 backdrop-blur-sm">
-                <h4 className="text-xs font-semibold mb-2 text-gray-700">악취 등급</h4>
+                <h4 className="text-xs font-semibold mb-2 text-gray-700">범례</h4>
                 <div className="flex flex-col gap-1">
                     {Object.entries(ODOR_GRADES).map(([grade, info]) => (
                         <div key={grade} className="flex items-center gap-2">
@@ -177,6 +231,10 @@ const DashboardMap: React.FC<DashboardMapProps> = ({ sensors }) => {
                     <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-black"></div>
                         <span className="text-xs text-gray-600">통신불량</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                        <span className="text-xs text-gray-600">민원</span>
                     </div>
                 </div>
             </div>
