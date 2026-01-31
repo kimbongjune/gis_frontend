@@ -188,7 +188,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* 2. Main Content Grid */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[500px]">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
                 {/* Center: GIS Map (Takes 2 columns) */}
                 <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                     <div className="p-4 border-b border-gray-100 flex justify-between items-center">
@@ -204,17 +204,17 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Right: Charts & List */}
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-6 min-h-0">
                     {/* Chart */}
-                    <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col">
+                    <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col min-h-0">
                         <h3 className="font-bold text-gray-800 mb-4 text-sm">최근 1시간 악취 데이터 Trend</h3>
-                        <div className="flex-1 min-h-[200px]">
+                        <div className="flex-1 min-h-[150px]">
                             <Line options={chartOptions} data={chartData} />
                         </div>
                     </div>
 
                     {/* Alarm List */}
-                    <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col max-h-[300px]">
+                    <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col min-h-0 overflow-hidden">
                         <div className="p-4 border-b border-gray-100 pb-2">
                             <h3 className="font-bold text-gray-800 text-sm">실시간 경보 이력</h3>
                         </div>
@@ -243,7 +243,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* 3. Bottom: Sensor Table */}
-            <div className="h-[300px]">
+            <div className="h-[250px] shrink-0">
                 <SensorTable sensors={sensors} onSensorClick={handleSensorClick} />
             </div>
         </div>

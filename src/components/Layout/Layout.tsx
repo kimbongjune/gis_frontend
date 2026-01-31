@@ -204,13 +204,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </header>
 
                 {/* Content Body */}
-                <main className="flex-1 overflow-y-hidden bg-gray-100 p-6">
+                <main className="flex-1 overflow-hidden bg-gray-100 p-6 flex flex-col">
                     {/* Breadcrumb */}
-                    <div className="mb-4 text-sm text-gray-500 font-medium">
+                    <div className="mb-4 text-sm text-gray-500 font-medium shrink-0">
                         {getBreadcrumb()}
                     </div>
 
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[calc(100vh-140px)] animate-in fade-in duration-300">
+                    <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col animate-in fade-in duration-300">
                         {children}
                     </div>
                 </main>

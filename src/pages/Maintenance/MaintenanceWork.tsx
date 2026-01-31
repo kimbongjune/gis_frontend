@@ -134,8 +134,8 @@ const MaintenanceWork: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-50 p-6 pb-20 space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="flex flex-col h-[calc(100vh-170px)] overflow-hidden bg-gray-50 p-6 space-y-6">
+            <div className="flex justify-between items-center shrink-0">
                 <h1 className="text-2xl font-bold text-gray-900">유지보수 내역</h1>
 
                 <div className="flex gap-3">
@@ -193,7 +193,7 @@ const MaintenanceWork: React.FC = () => {
             </div>
 
             {/* Tabs - Separate Row */}
-            <div className="flex border-b border-gray-200">
+            <div className="flex border-b border-gray-200 shrink-0">
                 <button
                     onClick={() => setActiveTab('CALENDAR')}
                     className={`px-6 py-3 text-sm font-bold transition-all flex items-center gap-2 border-b-2 ${activeTab === 'CALENDAR' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -210,16 +210,16 @@ const MaintenanceWork: React.FC = () => {
 
             {/* --- TAB CONTENT: CALENDAR --- */}
             {activeTab === 'CALENDAR' && (
-                <div className="flex gap-6 items-start">
+                <div className="flex-1 flex gap-6 items-start min-h-0">
 
                     {/* Calendar Card */}
-                    <div className="flex-1 flex bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="flex-1 flex bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden h-full">
 
                         {/* Left: FullCalendar */}
-                        <div className="flex-[3] flex flex-col border-r border-gray-200 min-w-0">
+                        <div className="flex-[3] flex flex-col border-r border-gray-200 min-w-0 h-full">
 
                             {/* Custom Toolbar */}
-                            <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-white">
+                            <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-white shrink-0">
                                 <div className="flex items-center gap-4">
                                     <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                         <CalIcon className="text-blue-600" />
@@ -241,13 +241,13 @@ const MaintenanceWork: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="p-6">
+                            <div className="flex-1 p-6 overflow-hidden">
                                 <style>{`
-                                .fc { font-family: 'Inter', sans-serif; }
+                                .fc { font-family: 'Inter', sans-serif; height: 100%; }
                                 .fc-theme-standard td, .fc-theme-standard th { border-color: #f3f4f6; }
                                 .fc-col-header-cell { padding: 12px 0; background-color: #f9fafb; font-weight: 600; color: #4b5563; font-size: 0.9rem; }
                                 .fc-daygrid-day-number { padding: 8px 12px; font-size: 0.95rem; font-weight: 500; color: #374151; }
-                                .fc-daygrid-day-frame { min-height: 120px !important; }
+                                .fc-daygrid-day-frame { min-height: 100% !important; }
                                 .fc-event { border: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
                                 .fc-day-today { background-color: #fffbeb !important; }
                                 .fc-highlight { background: #eff6ff !important; }
@@ -275,8 +275,8 @@ const MaintenanceWork: React.FC = () => {
                                     selectable={true}
                                     selectMirror={true}
                                     dayMaxEvents={true} /* Auto limit events to fit height */
-                                    contentHeight="auto"
-                                    height="auto"
+                                    contentHeight="100%"
+                                    height="100%"
                                     dateClick={handleDateClick}
                                     eventDrop={handleEventDrop}
                                     eventClick={(arg) => {
@@ -307,7 +307,7 @@ const MaintenanceWork: React.FC = () => {
 
                         {/* Right: Sidebar Task List */}
                         <div className="w-[340px] bg-white flex flex-col border-l border-gray-100 bg-gray-50/30">
-                            <div className="p-5 border-b border-gray-100 bg-white flex justify-between items-center h-[73px]"> {/* Match toolbar height roughly */}
+                            <div className="p-5 border-b border-gray-100 bg-white flex justify-between items-center h-[73px] shrink-0"> {/* Match toolbar height roughly */}
                                 <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
                                     일정 목록
                                 </h3>
@@ -323,7 +323,7 @@ const MaintenanceWork: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="flex-1 p-5 space-y-3 overflow-y-auto max-h-[800px] custom-scrollbar">
+                            <div className="flex-1 p-5 space-y-3 overflow-y-auto custom-scrollbar">
                                 {currentViewEvents
                                     .filter(e => {
                                         const matchesSearch = e.title.includes(searchTerm) ||
@@ -386,7 +386,7 @@ const MaintenanceWork: React.FC = () => {
 
             {/* --- TAB CONTENT: HISTORY --- */}
             {activeTab === 'HISTORY' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="flex-1 min-h-0 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 overflow-y-auto">
                     {/* Stats Cards */}
                     <div className="grid grid-cols-2 gap-6">
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center justify-between">
