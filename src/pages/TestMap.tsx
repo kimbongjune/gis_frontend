@@ -4,15 +4,16 @@ import { Search, Info, AlertTriangle, Upload, X } from 'lucide-react';
 import 'ol/ol.css';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
-import OSM from 'ol/source/OSM';
 import TileWMS from 'ol/source/TileWMS';
 import { fromLonLat } from 'ol/proj';
 import LayerTree from '../components/GIS/LayerTree';
 import proj4 from 'proj4';
 import { register } from 'ol/proj/proj4';
 import { transformExtent } from 'ol/proj';
+import XYZ from 'ol/source/XYZ';
 
 const TestMap: React.FC = () => {
+    const VWORLD_API_KEY = "AD6FA481-A946-39F9-AB98-550D90784C10"
     // State
     const [activeLayers, setActiveLayers] = useState<string[]>(['ne:coastlines']);
     const [selectedFeature, setSelectedFeature] = useState<any>(null);
@@ -36,7 +37,11 @@ const TestMap: React.FC = () => {
         const map = new Map({
             target: mapRef.current,
             layers: [
-                new TileLayer({ source: new OSM() }) // Base Map
+                new TileLayer({
+                    source: new XYZ ({
+                        url: `http://api.vworld.kr/req/wmts/1.0.0/${VWORLD_API_KEY}/Base/{z}/{y}/{x}.png`,
+                    })
+                })
             ],
             view: new View({
                 center: fromLonLat([126.9133, 35.1292]), // Gwangju Nam-gu center
