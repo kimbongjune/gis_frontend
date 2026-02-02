@@ -104,7 +104,15 @@ const MaintenanceWork: React.FC = () => {
 
     // --- Handlers ---
     const handleDateClick = (arg: DateClickArg) => {
-        setNewTask({ title: '', type: 'INSPECTION', inCharge: '', start: arg.dateStr, end: arg.dateStr, isAllDay: true });
+        setNewTask({
+            title: '',
+            type: 'INSPECTION',
+            inCharge: '',
+            start: arg.dateStr,
+            end: arg.dateStr,
+            isAllDay: true,
+            result: 'PENDING'
+        });
         setIsModalOpen(true);
     };
 
@@ -181,7 +189,14 @@ const MaintenanceWork: React.FC = () => {
                     </div>
                     <button
                         onClick={() => {
-                            setNewTask({ title: '', type: 'INSPECTION', inCharge: '', start: new Date().toISOString().split('T')[0], isAllDay: true });
+                            setNewTask({
+                                title: '',
+                                type: 'INSPECTION',
+                                inCharge: '',
+                                start: new Date().toISOString().split('T')[0],
+                                isAllDay: true,
+                                result: 'PENDING'
+                            });
                             setIsModalOpen(true);
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm shadow-md transition-all active:scale-95"
@@ -583,6 +598,41 @@ const MaintenanceWork: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Result Section */}
+                            {/* Result Section - Only visible when editing an existing task */}
+                            {newTask.id && (
+                                <div className="pt-2 border-t border-gray-100">
+                                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">점검 결과 및 내용</label>
+                                    <div className="grid grid-cols-3 gap-2 mb-3">
+                                        {[
+                                            { value: 'GOOD', label: '정상', color: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' },
+                                            { value: 'BAD', label: '이상 발견', color: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' },
+                                            { value: 'PENDING', label: '대기 (결과 없음)', color: 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100' }
+                                        ].map(opt => (
+                                            <button
+                                                key={opt.value}
+                                                onClick={() => setNewTask({ ...newTask, result: opt.value as any })}
+                                                className={`py-2 rounded-lg text-xs font-bold border transition-all
+                                                    ${newTask.result === opt.value
+                                                        ? (opt.value === 'GOOD' ? 'bg-green-600 text-white border-green-600' :
+                                                            opt.value === 'BAD' ? 'bg-red-600 text-white border-red-600' :
+                                                                'bg-gray-600 text-white border-gray-600')
+                                                        : opt.color}
+                                                `}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <textarea
+                                        className="w-full border border-gray-200 bg-gray-50 p-3 rounded-lg text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all min-h-[80px]"
+                                        placeholder="점검 결과 특이사항이나 조치 내용을 입력하세요."
+                                        value={newTask.description || ''}
+                                        onChange={e => setNewTask({ ...newTask, description: e.target.value })}
+                                    />
+                                </div>
+                            )}
+
                             <div className="flex gap-2 pt-2">
                                 {newTask.id && (
                                     <button
@@ -600,12 +650,23 @@ const MaintenanceWork: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         if (!newTask.title || !newTask.start) return;
+
+                                        // Auto-determine status based on result
+                                        const finalStatus = (newTask.result === 'GOOD' || newTask.result === 'BAD') ? 'COMPLETED' : 'SCHEDULED';
+
                                         if (newTask.id) {
                                             // Update
-                                            setEvents(events.map(e => e.id === newTask.id ? { ...newTask, id: e.id } as MaintenanceTask : e));
+                                            setEvents(events.map(e => e.id === newTask.id ?
+                                                { ...newTask, id: e.id, status: finalStatus } as MaintenanceTask
+                                                : e
+                                            ));
                                         } else {
                                             // Create
-                                            setEvents([...events, { ...newTask, id: String(Date.now()), status: 'SCHEDULED' } as MaintenanceTask]);
+                                            setEvents([...events, {
+                                                ...newTask,
+                                                id: String(Date.now()),
+                                                status: finalStatus
+                                            } as MaintenanceTask]);
                                         }
                                         setIsModalOpen(false);
                                     }}
