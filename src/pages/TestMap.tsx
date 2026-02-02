@@ -15,7 +15,7 @@ import XYZ from 'ol/source/XYZ';
 const TestMap: React.FC = () => {
     const VWORLD_API_KEY = "AD6FA481-A946-39F9-AB98-550D90784C10"
     // State
-    const [activeLayers, setActiveLayers] = useState<string[]>(['ne:coastlines']);
+    const [activeLayers, setActiveLayers] = useState<string[]>([]);
     const [selectedFeature, setSelectedFeature] = useState<any>(null);
     const [workspaces, setWorkspaces] = useState<string[]>([]);
 
@@ -38,7 +38,7 @@ const TestMap: React.FC = () => {
             target: mapRef.current,
             layers: [
                 new TileLayer({
-                    source: new XYZ ({
+                    source: new XYZ({
                         url: `http://api.vworld.kr/req/wmts/1.0.0/${VWORLD_API_KEY}/Base/{z}/{y}/{x}.png`,
                     })
                 })
