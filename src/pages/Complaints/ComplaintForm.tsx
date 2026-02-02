@@ -269,7 +269,7 @@ const ComplaintForm: React.FC = () => {
     };
 
     return (
-        <div className="flex h-[calc(100vh-64px)] bg-gray-100 p-4 gap-4 overflow-hidden">
+        <div className="flex h-[calc(100vh-64px)] bg-gray-100 gap-4 overflow-hidden">
 
             {/* Left Column: Complaint Registration Form (Operator) */}
             <div className="w-[400px] flex-shrink-0 bg-white rounded-lg shadow-md border border-gray-200 flex flex-col">
@@ -278,9 +278,6 @@ const ComplaintForm: React.FC = () => {
                         <h2 className="text-lg font-bold text-blue-900 flex items-center gap-2">
                             <Phone size={20} /> {formData.id ? '민원 수정' : '민원 접수'}
                         </h2>
-                        <p className="text-xs text-blue-600 mt-1">
-                            {formData.id ? '기존 민원 정보를 수정합니다.' : '전화 민원 수신 시 실시간 입력 폼'}
-                        </p>
                     </div>
                     {formData.id && (
                         <button

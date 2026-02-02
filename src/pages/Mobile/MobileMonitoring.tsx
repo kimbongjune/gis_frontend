@@ -35,10 +35,10 @@ const MobileMonitoring: React.FC = () => {
     };
 
     return (
-        <div className="relative w-full h-[calc(100vh-160px)] bg-gray-100 flex flex-col overflow-hidden rounded-b-xl border-b border-gray-200">
+        <div className="relative w-full h-[calc(100vh-160px)] flex flex-col overflow-hidden rounded-b-xl border-b border-gray-200">
 
             {/* Top Area: Status Summary Card (Static, Non-overlapping) */}
-            <div className="shrink-0 p-4 pb-2 z-10 bg-gray-100">
+            <div className="shrink-0 pb-2 z-10">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
                     <div className="flex justify-between items-center mb-3">
                         <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">

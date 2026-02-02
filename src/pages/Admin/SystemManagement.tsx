@@ -105,7 +105,7 @@ const SystemManagement: React.FC = () => {
 
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 gap-4 p-4 pb-8 overflow-hidden relative">
+        <div className="flex flex-col h-full bg-slate-50 gap-4 p-2 pb-8 overflow-hidden relative">
 
             {/* Header / Tabs */}
             <div className="flex justify-between items-center shrink-0">

@@ -109,7 +109,7 @@ const OperationHistory: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-170px)] bg-slate-50 gap-4 p-4 pb-8 overflow-hidden">
+        <div className="flex flex-col h-[calc(100vh-170px)] bg-slate-50 gap-4 pb-8 overflow-hidden">
             {/* Search Filter Panel - Compact */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 shrink-0">
                 <div className="flex flex-wrap gap-4 items-end">

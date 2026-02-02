@@ -136,7 +136,7 @@ const Dashboard: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full gap-6 p-2">
+        <div className="flex flex-col h-full gap-6">
             <AlarmPopup
                 isOpen={!!alarmPopupData}
                 onClose={() => setAlarmPopupData(null)}

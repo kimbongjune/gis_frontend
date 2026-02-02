@@ -142,7 +142,7 @@ const MaintenanceWork: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-170px)] overflow-hidden bg-gray-50 p-6 space-y-6">
+        <div className="flex flex-col h-[calc(100vh-170px)] overflow-hidden bg-gray-50 p-4 space-y-6">
             <div className="flex justify-between items-center shrink-0">
                 <h1 className="text-2xl font-bold text-gray-900">유지보수 내역</h1>
 

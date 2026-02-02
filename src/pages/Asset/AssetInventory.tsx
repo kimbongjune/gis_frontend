@@ -94,7 +94,7 @@ const AssetInventory: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full gap-4 bg-gray-50 p-4">
+        <div className="flex flex-col h-full gap-4 bg-gray-50">
 
             {/* Top Cards: Budget & Status Summary */}
             <div className="grid grid-cols-4 gap-4">

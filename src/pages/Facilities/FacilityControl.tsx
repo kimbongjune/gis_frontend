@@ -69,7 +69,7 @@ const FacilityControl: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col w-full h-full bg-gray-50 p-6 gap-6 min-h-[600px]">
+        <div className="flex flex-col w-full h-full bg-gray-50 gap-6 min-h-[600px]">
             {/* Breadcrumb - removed local since layout has it? No, keep logic if needed or rely on Layout.
           Actually, I'll keep the two-pane layout but ensure explicit height */}
 

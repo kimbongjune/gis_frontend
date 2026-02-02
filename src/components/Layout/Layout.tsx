@@ -210,7 +210,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         {getBreadcrumb()}
                     </div>
 
-                    <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col animate-in fade-in duration-300">
+                    <div className="p-2 flex-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col animate-in fade-in duration-300">
                         {children}
                     </div>
                 </main>

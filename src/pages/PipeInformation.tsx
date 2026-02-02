@@ -97,7 +97,7 @@ const PipeInformation: React.FC = () => {
     };
 
     return (
-        <div className="flex gap-6 h-[calc(100vh-140px)] overflow-hidden p-2">
+        <div className="flex gap-6 h-[calc(100vh-140px)] overflow-hidden">
             {/* Left Sidebar: Filter & List */}
             <div className="w-[320px] shrink-0 flex flex-col gap-4 h-full">
                 <PipeFilter filters={filters} onFilterChange={handleFilterChange} />
