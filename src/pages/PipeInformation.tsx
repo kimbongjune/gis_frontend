@@ -78,8 +78,11 @@ const PipeInformation: React.FC = () => {
     const handlePipeClick = (pipe: PipeData | null) => {
         setSelectedPipe(pipe);
         if (pipe) {
-            // In real app, fetch sensors for this pipe ID. For now, random mock.
-            setRelatedSensors(generateMockSensors().slice(0, Math.floor(Math.random() * 3) + 1));
+            // Deterministic mock: Return exactly one linked sensor for the selected pipe
+            const allSensors = generateMockSensors();
+            // Use pipe ID to deterministically pick a sensor (mock relationship)
+            const sensorIndex = pipe.id.split('-')[1] ? parseInt(pipe.id.split('-')[1]) % allSensors.length : 0;
+            setRelatedSensors([allSensors[sensorIndex]]);
         } else {
             setRelatedSensors([]);
         }

@@ -102,26 +102,7 @@ const ComplaintForm: React.FC = () => {
         setIsPickerOpen(false);
     };
 
-    const handleRegister = (e: React.FormEvent) => {
-        e.preventDefault();
-        // Validation logic here
-        const newComplaint: Complaint = {
-            id: `C${new Date().getFullYear()}${new Date().getMonth() + 1}${new Date().getDate()}-${Math.floor(Math.random() * 100)}`,
-            date: formData.date,
-            time: formData.time,
-            type: formData.type as any,
-            location: formData.location,
-            content: formData.content,
-            status: 'RECEIVED',
-            reporter: formData.reporter,
-            contact: formData.contact,
-            manager: '박새로이 (자동배정)', // Mock
-            lat: formData.lat,
-            lon: formData.lon
-        };
-
-        setComplaints([newComplaint, ...complaints]);
-        alert('민원이 등록되었습니다.');
+    const resetForm = () => {
         setFormData({
             id: null,
             reporter: '', contact: '',
@@ -131,6 +112,52 @@ const ComplaintForm: React.FC = () => {
             location: '', lat: 35.1272, lon: 126.9113,
             content: '', files: null
         });
+    };
+
+    const handleRegister = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (formData.id) {
+            // Update existing
+            setComplaints(complaints.map(c =>
+                c.id === formData.id ? {
+                    ...c,
+                    reporter: formData.reporter,
+                    contact: formData.contact,
+                    date: formData.date,
+                    time: formData.time,
+                    type: formData.type as any,
+                    location: formData.location,
+                    lat: formData.lat,
+                    lon: formData.lon,
+                    content: formData.content,
+                    // Preserve other fields
+                    manager: c.manager,
+                    status: c.status
+                } : c
+            ));
+            alert('민원 정보가 수정되었습니다.');
+        } else {
+            // Create new
+            const newComplaint: Complaint = {
+                id: `C${new Date().getFullYear()}${new Date().getMonth() + 1}${new Date().getDate()}-${Math.floor(Math.random() * 100)}`,
+                date: formData.date,
+                time: formData.time,
+                type: formData.type as any,
+                location: formData.location,
+                content: formData.content,
+                status: 'RECEIVED',
+                reporter: formData.reporter,
+                contact: formData.contact,
+                manager: '박새로이 (자동배정)', // Mock
+                lat: formData.lat,
+                lon: formData.lon
+            };
+            setComplaints([newComplaint, ...complaints]);
+            alert('민원이 등록되었습니다.');
+        }
+
+        resetForm();
     };
 
     const handleManageClick = (complaint: Complaint) => {
@@ -246,11 +273,23 @@ const ComplaintForm: React.FC = () => {
 
             {/* Left Column: Complaint Registration Form (Operator) */}
             <div className="w-[400px] flex-shrink-0 bg-white rounded-lg shadow-md border border-gray-200 flex flex-col">
-                <div className="p-4 border-b border-gray-100 bg-blue-50 rounded-t-lg">
-                    <h2 className="text-lg font-bold text-blue-900 flex items-center gap-2">
-                        <Phone size={20} /> 민원 접수
-                    </h2>
-                    <p className="text-xs text-blue-600 mt-1">전화 민원 수신 시 실시간 입력 폼</p>
+                <div className="p-4 border-b border-gray-100 bg-blue-50 rounded-t-lg flex justify-between items-center">
+                    <div>
+                        <h2 className="text-lg font-bold text-blue-900 flex items-center gap-2">
+                            <Phone size={20} /> {formData.id ? '민원 수정' : '민원 접수'}
+                        </h2>
+                        <p className="text-xs text-blue-600 mt-1">
+                            {formData.id ? '기존 민원 정보를 수정합니다.' : '전화 민원 수신 시 실시간 입력 폼'}
+                        </p>
+                    </div>
+                    {formData.id && (
+                        <button
+                            onClick={resetForm}
+                            className="text-xs bg-white text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-50 font-bold"
+                        >
+                            신규 등록
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-5">

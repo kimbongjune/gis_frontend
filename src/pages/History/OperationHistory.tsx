@@ -168,8 +168,8 @@ const OperationHistory: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('list')}
                     className={`px-5 py-2.5 text-sm font-bold rounded-t-lg transition-all flex items-center gap-2 ${activeTab === 'list'
-                            ? 'bg-white border-x border-t border-slate-200 text-blue-600 relative top-px shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]'
-                            : 'bg-slate-100/50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                        ? 'bg-white border-x border-t border-slate-200 text-blue-600 relative top-px shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]'
+                        : 'bg-slate-100/50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                         }`}
                 >
                     <List size={18} /> 운영 이력 목록
@@ -177,8 +177,8 @@ const OperationHistory: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('chart')}
                     className={`px-5 py-2.5 text-sm font-bold rounded-t-lg transition-all flex items-center gap-2 ${activeTab === 'chart'
-                            ? 'bg-white border-x border-t border-slate-200 text-blue-600 relative top-px shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]'
-                            : 'bg-slate-100/50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                        ? 'bg-white border-x border-t border-slate-200 text-blue-600 relative top-px shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]'
+                        : 'bg-slate-100/50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                         }`}
                 >
                     <BarChart2 size={18} /> 에너지 사용량 차트
@@ -244,9 +244,11 @@ const OperationHistory: React.FC = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={7} className="p-20 text-center text-slate-400 flex flex-col items-center gap-4">
-                                                <Search size={48} className="opacity-20" />
-                                                <span className="text-lg">일치하는 데이터가 없습니다.</span>
+                                            <td colSpan={7} className="p-20 text-center text-slate-400">
+                                                <div className="flex flex-col items-center gap-4">
+                                                    <Search size={48} className="opacity-20" />
+                                                    <span className="text-lg">일치하는 데이터가 없습니다.</span>
+                                                </div>
                                             </td>
                                         </tr>
                                     )}
@@ -269,8 +271,8 @@ const OperationHistory: React.FC = () => {
                                         key={i + 1}
                                         onClick={() => handlePageChange(i + 1)}
                                         className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${currentPage === i + 1
-                                                ? 'bg-blue-600 text-white shadow-md'
-                                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                            ? 'bg-blue-600 text-white shadow-md'
+                                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                                             }`}
                                     >
                                         {i + 1}

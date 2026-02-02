@@ -104,7 +104,7 @@ const MaintenanceWork: React.FC = () => {
 
     // --- Handlers ---
     const handleDateClick = (arg: DateClickArg) => {
-        setNewTask({ ...newTask, start: arg.dateStr, end: arg.dateStr, isAllDay: true });
+        setNewTask({ title: '', type: 'INSPECTION', inCharge: '', start: arg.dateStr, end: arg.dateStr, isAllDay: true });
         setIsModalOpen(true);
     };
 
